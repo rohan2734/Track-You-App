@@ -5,7 +5,9 @@ import {navigate} from '../navigationRef';
 
 const authReducer = (state,action) => {
   switch (action.type){
-    case 'signup':
+    case 'clear_error_message':
+      return {...state,errorMessage:''};
+    case 'signin':
       return {token:action.payload,errorMessage:''};
     case 'add_error':
       return {...state,errorMessage: action.payload};
@@ -14,12 +16,27 @@ const authReducer = (state,action) => {
   }
 };
 
+const tryLocalSignin = dispatch =>  async ()=> {
+  const token = await AsyncStorage.getItem('token');
+  if(token){
+    dispatch({type:'signin',payload:token});
+    navigate('TrackListScreen');
+  }else{
+    navigate('Signup');
+  }
+}
+
+const clearErrorMessage = dispatch => () => {
+  dispatch({
+    type:'clear_error_message'
+  })
+}
+
 const signup = dispatch => async ({email,password}) => {
     try{
       const response = await trackerApi.post('/signup',{email,password});
       await AsyncStorage.setItem('token',response.data.token);
-      dispatch({type:'singup',payload: response.data.token})
-      
+      dispatch({type:'singin',payload: response.data.token})
       navigate('TrackList');
     }catch(err){
       dispatch({type:'add_error',payload:'Something went wrong with signup'})
@@ -28,11 +45,18 @@ const signup = dispatch => async ({email,password}) => {
 
 
 const signin = dispatch => {
-  return ({email,password}) => {
-    //try to signin
-    //Handle success by updating state
-    //Handle failure by showing error message (somehow)
-
+  return async ({email,password}) => {
+    try{
+      const response = await trackerApi.post('/signin',{email,password});
+      await AsyncStorage.setItem('token',response.data.token);
+      dispatch({type:'signin',payload:response.data.token});
+      navigate('TrackList');
+    }catch(err){
+      dispatch({
+        type:'add_error',
+        payload:'Something went wrong with signin'
+      })
+    }
   };
 };
 
@@ -44,6 +68,6 @@ const signout = dispatch => {
 
 export const {Provider,Context} = createDataContext(
   authReducer,
-  {signin,signout,signup},
+  {signin,signout,signup,clearErrorMessage,tryLocalSignin},
   {token:null,errorMessage:''}
 );
